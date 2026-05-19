@@ -1,0 +1,6 @@
+name: rust
+display_name: HashMap (rust)
+
+build:
+  system: cargo
+

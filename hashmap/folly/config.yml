@@ -1,0 +1,15 @@
+name: folly
+display_name: F14FastMap (C++)
+
+source:
+  type: package
+
+build:
+  system: cmake
+  build_dir: build
+  configure_args:
+    - -DCMAKE_BUILD_TYPE=Release
+  build_args:
+    - --target
+    - hashbench_folly
+  output: hashbench

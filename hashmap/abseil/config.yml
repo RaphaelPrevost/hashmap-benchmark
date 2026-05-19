@@ -1,0 +1,15 @@
+name: abseil
+display_name: Abseil (C++)
+
+source:
+  type: package
+
+build:
+  system: cmake
+  build_dir: build
+  configure_args:
+    - -DCMAKE_BUILD_TYPE=Release
+  build_args:
+    - --target
+    - hashbench_absl
+  output: hashbench

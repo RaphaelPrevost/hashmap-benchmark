@@ -1,0 +1,62 @@
+name: askl
+display_name: ASKL Map (C)
+
+source:
+  type: github-raw
+  repo: RaphaelPrevost/ASKL
+  ref: master   # later: replace with pinned commit hash
+  files:
+    - lib/askl.h
+    - lib/askl_htable.h
+    - lib/askl_htable.c
+    - lib/askl_rwlock.h
+    - lib/askl_rwlock.c
+    - lib/askl_variant.h
+    - lib/askl_variant.c
+    - lib/askl_string.h
+    - lib/arcane/bitops.c
+    - lib/arcane/htable.c
+    - lib/compat/askl_compat_layer.h
+    - lib/compat/askl_compat_layer.c
+    - lib/compat/askl_file_compat.h
+    - lib/compat/askl_file_compat.c
+    - lib/compat/askl_mmap_compat.h
+    - lib/compat/askl_mmap_compat.c
+    - lib/compat/askl_module_compat.h
+    - lib/compat/askl_module_compat.c
+    - lib/compat/askl_random_compat.h
+    - lib/compat/askl_random_compat.c
+    - lib/compat/askl_socket_compat.h
+    - lib/compat/askl_socket_compat.c
+    - lib/compat/askl_stdc_compat.h
+    - lib/compat/askl_stdc_compat.c
+    - lib/compat/askl_time_compat.h
+    - lib/compat/askl_time_compat.c
+
+build:
+  system: cc
+  compiler: gcc
+  cflags:
+    - -O2
+    - -pipe
+    - -flto=auto
+    - -DNDEBUG
+    - -std=c11
+    - -W
+    - -Wall
+    - -Wpointer-arith
+    - -D_ENABLE_HASHMAP
+  libs:
+    - -lpthread
+  include_dirs:
+    - .
+  sources:
+    - benchmark.c
+    - src/lib/askl_htable.c
+    - src/lib/askl_rwlock.c
+    - src/lib/askl_variant.c
+    - src/lib/compat/askl_compat_layer.c
+  output: hashbench
+
+run:
+  command: ./hashbench --mode {mode} --keys {keys} --seed {seed}

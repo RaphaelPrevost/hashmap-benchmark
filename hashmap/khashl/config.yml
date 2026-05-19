@@ -1,0 +1,25 @@
+name: khashl
+display_name: khashl (C)
+
+source:
+  type: github-raw
+  repo: attractivechaos/khashl
+  ref: master   # later: replace with pinned commit hash
+  files:
+    - khashl.h
+
+build:
+  system: cc
+  compiler: cc
+  cflags:
+    - -O3
+    - -DNDEBUG
+    - -std=c11
+    - -W
+    - -Wall
+    - -Wpointer-arith
+  include_dirs:
+    - .
+  sources:
+    - benchmark.c
+  output: hashbench
