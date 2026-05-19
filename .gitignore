@@ -1,0 +1,25 @@
+# Generated build artifacts
+hashmap/*/build/
+hashmap/*/target/
+hashmap/*/src/
+
+# Cargo lockfile
+hashmap/*/Cargo.lock
+
+# CMake artifacts
+hashmap/*/CMakeCache.txt
+hashmap/*/CMakeFiles/
+hashmap/*/*.cmake
+hashmap/*/Makefile
+
+# Results
+hashmap/*/results/
+
+# IDE/editor files
+**/*.swp
+**/*.swo
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
