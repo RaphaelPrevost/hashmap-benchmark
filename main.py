@@ -541,7 +541,7 @@ def _append_test_section(md_parts: list[str], title: str, df_test: pd.DataFrame,
 
 REPORT_TEMPLATE = r'''# Hashmap benchmark report
 
-This benchmark pits my hash map implementation, from [ASKL](https://github.com/RaphaelPrevost/ASKL), against what I hope is a representative sample of the state of the art:
+This benchmark pits my hash map implementation, [ASKL](https://github.com/RaphaelPrevost/ASKL)'s Map, against what I hope is a representative sample of the state of the art:
 - Abseil, written in C++ and SwissTable-based
 - F14 FastMap, written in C++ and optimised for raw speed
 - Rust's standard library HashMap, based on hashbrown
@@ -552,9 +552,9 @@ This benchmark pits my hash map implementation, from [ASKL](https://github.com/R
 
 What does ASKL bring to the table? Like all the strong contenders above, it's portable, but it's also thread-safe, comes with an iterator and stable traversal order, and a fun lazy sort feature. It's a hybrid beast somewhat similar to Java's LinkedHashMap.
 
-You can play with it and run the unit tests here: [GodBolt](https://godbolt.org/z/h4ffsWdq8)
+You can play with it and run the multi-threaded unit tests here: [Godbolt](https://godbolt.org/z/h4ffsWdq8)
 
-My own focus is fast retrieval of pointer values from a string key, so that's the performance aspect
+My own focus is fast retrieval of pointer values from string keys, so that's the performance aspect
 I have optimised ASKL for and what this simple benchmark tries to evaluate.
 
 I have measured four different workloads:
@@ -565,8 +565,12 @@ I have measured four different workloads:
 
 The numbers provided here come from my own machine, a M2 Max, and were gathered using hyperfine.
 All the timings are wall-clock medians in milliseconds, lower is better.
-Not all implementations have some "reserve" feature, so I have not used it for those who do.
+Not all implementations have some "reserve" feature, so the benchmark purposefully does not use capacity hints.
 I have chosen to use each implementation "as-is" including their default hash function, because that's how a developer using the various libraries would experience them. ASKL uses rapidhashNano.
+
+## AI disclosure
+
+I have written my hashmap the old-fashioned way, without AI, however the benchmark harness, part of the unit tests and some of the documentation have been edited with AI.
 
 ## Outputs
 
@@ -594,7 +598,7 @@ As you can see, Rust's HashMap crushes everyone here. I essentially compete with
 
 __TABLE_ZOOM_UPDATE__
 
-Same story for updates, except khash and khashl get closer too as we approach the million.
+Same story for updates, except khash starts breathing down my neck as we approach the million.
 
 ### Retrieve ≤ 1M keys
 
@@ -610,7 +614,7 @@ That's what I worked for. I'm elbowing Rust here, but Folly and M*DICT come back
 
 __TABLE_ZOOM_MISS__
 
-I admit I didn't really optimise this, as it's not really a concern for my use case. I get trounced by the usual suspects rather quickly here.
+I admit I didn't really optimise this, as it's not really a concern for my use case. I get trounced by the usual suspects rather quickly here!
 
 ## Full report
 
@@ -636,7 +640,7 @@ Here I put up a rather honourable fight. The chart is pretty close to "retrieve"
 
 __TABLE_FULL_RETRIEVE__
 
-I did my best to mitigate the impact of the memory wall (pointer tagging helped), but it's real, and I start hitting it hard above 2 million keys. Note the very powerful comeback of khash who rules over everyone else at 10 millions keys. I was surprised to still manage to shadow Abseil for this large amount of data.
+I did my best to mitigate the impact of the memory wall (pointer tagging helped), but it's real, and I start hitting it hard above 2 million keys. Note the very powerful comeback of khash who rules over everyone else at 10 million keys. I was surprised to still manage to shadow Abseil for this large amount of data.
 
 ### Miss full range
 
@@ -647,6 +651,8 @@ __TABLE_FULL_MISS__
 Not a good one. I still manage to do better than Python and Verstable.
 
 Thank you for reading this far, and I hope you'll enjoy tinkering with ASKL's Map!
+
+By the way, [ASKL](https://github.com/RaphaelPrevost/ASKL) implements other fun stuff, maybe you'll come for the hashmap and stay for the JSON parser?
 '''
 
 
