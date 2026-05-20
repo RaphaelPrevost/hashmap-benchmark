@@ -15,7 +15,7 @@ from typing import Optional
 
 ROOT = Path(__file__).resolve().parent
 HASHMAP_DIR = ROOT / "hashmap"
-DEFAULT_OUTPUT_DIR = ROOT / "docs"
+DEFAULT_OUTPUT_DIR = ROOT
 
 MODES = ["insert", "update", "retrieve", "miss"]
 SIZES = [
@@ -364,28 +364,38 @@ def collect_benchmark_rows(root: Path) -> pd.DataFrame:
             skipped.append(result_path)
             continue
 
-        with result_path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with result_path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError) as exc:
+            skipped.append(result_path)
+            print(f"==> warning: ignoring invalid/incomplete result file: {result_path} ({exc})")
+            continue
 
         for result in data.get("results", []):
             times = result.get("times", [])
             exit_codes = result.get("exit_codes", [])
             ok_runs = sum(1 for code in exit_codes if code == 0)
 
-            rows.append({
-                "impl": impl,
-                "display_name": display_name,
-                "test": test,
-                "keys": keys,
-                "mean_ms": result["mean"] * 1000.0,
-                "median_ms": result["median"] * 1000.0,
-                "stddev_ms": result["stddev"] * 1000.0,
-                "min_ms": result["min"] * 1000.0,
-                "max_ms": result["max"] * 1000.0,
-                "runs": len(times),
-                "ok_runs": ok_runs,
-                "success_rate": (ok_runs / len(exit_codes) * 100.0) if exit_codes else 100.0,
-            })
+            try:
+                rows.append({
+                    "impl": impl,
+                    "display_name": display_name,
+                    "test": test,
+                    "keys": keys,
+                    "mean_ms": result["mean"] * 1000.0,
+                    "median_ms": result["median"] * 1000.0,
+                    "stddev_ms": result["stddev"] * 1000.0,
+                    "min_ms": result["min"] * 1000.0,
+                    "max_ms": result["max"] * 1000.0,
+                    "runs": len(times),
+                    "ok_runs": ok_runs,
+                    "success_rate": (ok_runs / len(exit_codes) * 100.0) if exit_codes else 100.0,
+                })
+            except KeyError as exc:
+                skipped.append(result_path)
+                print(f"==> warning: ignoring malformed result in {result_path} (missing {exc})")
+                continue
 
     if skipped:
         print(f"==> ignored {len(skipped)} stale/unexpected result file(s)")
@@ -528,9 +538,149 @@ def _append_test_section(md_parts: list[str], title: str, df_test: pd.DataFrame,
     md_parts.append("")
 
 
+
+REPORT_TEMPLATE = r'''# Hashmap benchmark report
+
+This benchmark pits my hash map implementation, from [ASKL](https://github.com/RaphaelPrevost/ASKL), against what I hope is a representative sample of the state of the art:
+- Abseil, written in C++ and SwissTable-based
+- F14 FastMap, written in C++ and optimised for raw speed
+- Rust's standard library HashMap, based on hashbrown
+- M*DICT, a high quality hash map written in C
+- Verstable, Jackson Allan's clever generic hashtable written in C
+- the Python dictionary, which is written in C under the hood
+- khash, probably the most famous C hash map, and its descendant khashl
+
+What does ASKL bring to the table? Like all the strong contenders above, it's portable, but it's also thread-safe, comes with an iterator and stable traversal order, and a fun lazy sort feature. It's a hybrid beast somewhat similar to Java's LinkedHashMap.
+
+You can play with it and run the unit tests here: [GodBolt](https://godbolt.org/z/h4ffsWdq8)
+
+My own focus is fast retrieval of pointer values from a string key, so that's the performance aspect
+I have optimised ASKL for and what this simple benchmark tries to evaluate.
+
+I have measured four different workloads:
+- insert simply inserts "1" to "N" keys with integer values in the map
+- update inserts the same data in the map, then update all the values
+- retrieve inserts data, then read the values back (the one I care the most about)
+- miss inserts data, then purposefully lookup non-existing keys.
+
+The numbers provided here come from my own machine, a M2 Max, and were gathered using hyperfine.
+All the timings are wall-clock medians in milliseconds, lower is better.
+Not all implementations have some "reserve" feature, so I have not used it for those who do.
+I have chosen to use each implementation "as-is" including their default hash function, because that's how a developer using the various libraries would experience them. ASKL uses rapidhashNano.
+
+## Outputs
+
+- `all-benchmarks.csv`: full aggregated dataset
+- `all-benchmarks-under-1m.csv`: aggregated dataset restricted to `keys <= 1_000_000`
+- `insert.csv`, `update.csv`, `retrieve.csv`, `miss.csv`: full per-test CSVs
+- `insert-under-1m.csv`, `update-under-1m.csv`, `retrieve-under-1m.csv`, `miss-under-1m.csv`: zoomed per-test CSVs
+
+## Zoomed report: ≤ 1M keys
+
+My own use case involves a moderate amount of data, usually between a few thousand and a hundred thousand key/value pairs, so I have paid special attention to this range of values.
+
+### Insert ≤ 1M keys
+
+![Insert ≤ 1M keys chart](insert-under-1m.png)
+
+__TABLE_ZOOM_INSERT__
+
+
+As you can see, Rust's HashMap crushes everyone here. I essentially compete with M*DICT, but Abseil and Folly close the gap as we reach 1 million keys.
+
+### Update ≤ 1M keys
+
+![Update ≤ 1M keys chart](update-under-1m.png)
+
+__TABLE_ZOOM_UPDATE__
+
+Same story for updates, except khash and khashl get closer too as we approach the million.
+
+### Retrieve ≤ 1M keys
+
+![Retrieve ≤ 1M keys chart](retrieve-under-1m.png)
+
+__TABLE_ZOOM_RETRIEVE__
+
+That's what I worked for. I'm elbowing Rust here, but Folly and M*DICT come back for the million.
+
+### Miss ≤ 1M keys
+
+![Miss ≤ 1M keys chart](miss-under-1m.png)
+
+__TABLE_ZOOM_MISS__
+
+I admit I didn't really optimise this, as it's not really a concern for my use case. I get trounced by the usual suspects rather quickly here.
+
+## Full report
+
+### Insert full range
+
+![Insert full range chart](insert.png)
+
+__TABLE_FULL_INSERT__
+
+Insertions are quite fiddly with cuckoo hashing, so without surprise I get beaten by most of the other contenders, especially for large numbers of keys.
+
+### Update full range
+
+![Update full range chart](update.png)
+
+__TABLE_FULL_UPDATE__
+
+Here I put up a rather honourable fight. The chart is pretty close to "retrieve", which is the one I have focused on.
+
+### Retrieve full range
+
+![Retrieve full range chart](retrieve.png)
+
+__TABLE_FULL_RETRIEVE__
+
+I did my best to mitigate the impact of the memory wall (pointer tagging helped), but it's real, and I start hitting it hard above 2 million keys. Note the very powerful comeback of khash who rules over everyone else at 10 millions keys. I was surprised to still manage to shadow Abseil for this large amount of data.
+
+### Miss full range
+
+![Miss full range chart](miss.png)
+
+__TABLE_FULL_MISS__
+
+Not a good one. I still manage to do better than Python and Verstable.
+
+Thank you for reading this far, and I hope you'll enjoy tinkering with ASKL's Map!
+'''
+
+
+def _table_markdown(df: pd.DataFrame) -> str:
+    if df.empty:
+        return "_No data available._"
+    return make_test_table(df).to_markdown()
+
+
+def _replace_report_tables(template: str, agg_df: pd.DataFrame, zoom_df: pd.DataFrame) -> str:
+    replacements = {
+        "__TABLE_ZOOM_INSERT__": _table_markdown(zoom_df[zoom_df["test"] == "insert"].copy()),
+        "__TABLE_ZOOM_UPDATE__": _table_markdown(zoom_df[zoom_df["test"] == "update"].copy()),
+        "__TABLE_ZOOM_RETRIEVE__": _table_markdown(zoom_df[zoom_df["test"] == "retrieve"].copy()),
+        "__TABLE_ZOOM_MISS__": _table_markdown(zoom_df[zoom_df["test"] == "miss"].copy()),
+        "__TABLE_FULL_INSERT__": _table_markdown(agg_df[agg_df["test"] == "insert"].copy()),
+        "__TABLE_FULL_UPDATE__": _table_markdown(agg_df[agg_df["test"] == "update"].copy()),
+        "__TABLE_FULL_RETRIEVE__": _table_markdown(agg_df[agg_df["test"] == "retrieve"].copy()),
+        "__TABLE_FULL_MISS__": _table_markdown(agg_df[agg_df["test"] == "miss"].copy()),
+    }
+
+    report = template
+    for placeholder, table in replacements.items():
+        report = report.replace(placeholder, table)
+
+    return report
+
+
 def build_benchmark_report(root: Path, output_dir: Path, metric: str = "median_ms") -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / ".nojekyll").write_text("", encoding="utf-8")
+
+    # Useful when the same output directory is later used for GitHub Pages.
+    if output_dir.name == "docs":
+        (output_dir / ".nojekyll").write_text("", encoding="utf-8")
 
     raw_df = collect_benchmark_rows(root)
     if raw_df.empty:
@@ -542,54 +692,30 @@ def build_benchmark_report(root: Path, output_dir: Path, metric: str = "median_m
     agg_df.to_csv(output_dir / "all-benchmarks.csv", index=False)
     zoom_df.to_csv(output_dir / "all-benchmarks-under-1m.csv", index=False)
 
-    md_parts = []
-    md_parts.append("# Hashmap benchmark report")
-    md_parts.append("")
-    md_parts.append(f"Aggregated using **{metric}** as the plotted value.")
-    md_parts.append("")
-    md_parts.append("This report is generated by `main.py`. The default output directory is `docs/`, so GitHub Pages can serve this file as `index.md` and GitHub will also render `README.md` when browsing the directory.")
-    md_parts.append("")
-    md_parts.append("## Outputs")
-    md_parts.append("")
-    md_parts.append("- `all-benchmarks.csv`: full aggregated dataset")
-    md_parts.append("- `all-benchmarks-under-1m.csv`: aggregated dataset restricted to `keys <= 1_000_000`")
-    md_parts.append("- `insert.csv`, `update.csv`, `retrieve.csv`, `miss.csv`: full per-test CSVs")
-    md_parts.append("- `insert-under-1m.csv`, `update-under-1m.csv`, `retrieve-under-1m.csv`, `miss-under-1m.csv`: zoomed per-test CSVs")
-    md_parts.append("")
-    md_parts.append("## Zoomed report: ≤ 1M keys")
-    md_parts.append("")
-    md_parts.append("This section focuses on the small/medium map regime, which is often the most relevant range for application code.")
-    md_parts.append("")
-
     for test_name in MODES:
         df_test = zoom_df[zoom_df["test"] == test_name].copy()
-        if df_test.empty:
-            continue
-        chart_path = plot_test_chart(
-            df_test,
-            test_name,
-            output_dir,
-            filename=f"{test_name}-under-1m.png",
-            zoomed=True,
-        )
-        df_test.to_csv(output_dir / f"{test_name}-under-1m.csv", index=False)
-        _append_test_section(md_parts, f"{test_name.title()} ≤ 1M keys", df_test, chart_path)
-
-    md_parts.append("## Full report")
-    md_parts.append("")
+        if not df_test.empty:
+            plot_test_chart(
+                df_test,
+                test_name,
+                output_dir,
+                filename=f"{test_name}-under-1m.png",
+                zoomed=True,
+            )
+            df_test.to_csv(output_dir / f"{test_name}-under-1m.csv", index=False)
 
     for test_name in MODES:
         df_test = agg_df[agg_df["test"] == test_name].copy()
-        if df_test.empty:
-            continue
-        chart_path = plot_test_chart(df_test, test_name, output_dir)
-        df_test.to_csv(output_dir / f"{test_name}.csv", index=False)
-        _append_test_section(md_parts, f"{test_name.title()} full range", df_test, chart_path)
+        if not df_test.empty:
+            plot_test_chart(df_test, test_name, output_dir)
+            df_test.to_csv(output_dir / f"{test_name}.csv", index=False)
 
-    report = "\n".join(md_parts)
-    (output_dir / "index.md").write_text(report, encoding="utf-8")
+    report = _replace_report_tables(REPORT_TEMPLATE, agg_df, zoom_df)
     (output_dir / "README.md").write_text(report, encoding="utf-8")
-    print(f"==> wrote report to {output_dir / 'index.md'}")
+    (output_dir / "index.md").write_text(report, encoding="utf-8")
+
+    print(f"==> wrote report to {output_dir / 'README.md'}")
+    print(f"==> wrote index to {output_dir / 'index.md'}")
 
 
 # ---------------------------------------------------------------------------
@@ -604,7 +730,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "implementations",
         nargs="*",
-        help="implementation directory name(s) under hashmap/ to refresh. If omitted, all implementations are refreshed.",
+        help="implementation directory name(s) under hashmap/ to refresh. If omitted, all implementations are refreshed. Use 'report' or 'output' to regenerate the report only.",
     )
     parser.add_argument(
         "--report-only",
@@ -626,7 +752,7 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         default=DEFAULT_OUTPUT_DIR,
-        help="report output directory. Defaults to ./docs for GitHub Pages.",
+        help="report output directory. Defaults to the repository root, so GitHub renders README.md on the repo front page.",
     )
     return parser.parse_args()
 
@@ -641,6 +767,16 @@ def main() -> None:
         for impl_dir in discover_implementations(HASHMAP_DIR):
             print(impl_dir.name)
         return
+
+    report_commands = {"report", "output", "docs"}
+    if args.implementations and args.implementations[0] in report_commands:
+        args.report_only = True
+        args.implementations = args.implementations[1:]
+        if args.implementations:
+            raise SystemExit(
+                "the report/output command does not accept implementation names; "
+                "use './main.py report' or './main.py --report-only'"
+            )
 
     if not args.report_only:
         impls = select_implementations(HASHMAP_DIR, args.implementations)

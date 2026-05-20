@@ -1,15 +1,17 @@
 # Hashmap benchmark report
 
-This benchmark pits my own hash map implementation, [ASKL](https://github.com/RaphaelPrevost/ASKL), against what I hope is a representative sample of the state of the art:
+This benchmark pits my hash map implementation, from [ASKL](https://github.com/RaphaelPrevost/ASKL), against what I hope is a representative sample of the state of the art:
 - Abseil, written in C++ and SwissTable-based
 - F14 FastMap, written in C++ and optimised for raw speed
 - Rust's standard library HashMap, based on hashbrown
 - M*DICT, a high quality hash map written in C
-- Verstable, Jackson Allan's implementation in C
+- Verstable, Jackson Allan's clever generic hashtable written in C
 - the Python dictionary, which is written in C under the hood
 - khash, probably the most famous C hash map, and its descendant khashl
 
 What does ASKL bring to the table? Like all the strong contenders above, it's portable, but it's also thread-safe, comes with an iterator and stable traversal order, and a fun lazy sort feature. It's a hybrid beast somewhat similar to Java's LinkedHashMap.
+
+You can play with it and run the unit tests here: [GodBolt](https://godbolt.org/z/h4ffsWdq8)
 
 My own focus is fast retrieval of pointer values from a string key, so that's the performance aspect
 I have optimised ASKL for and what this simple benchmark tries to evaluate.
@@ -34,7 +36,7 @@ I have chosen to use each implementation "as-is" including their default hash fu
 
 ## Zoomed report: ≤ 1M keys
 
-My own use case involves a moderate amount of data, usually between a few thousand and a few hundred thousand key/value pairs, so I have paid special attention to this range of values.
+My own use case involves a moderate amount of data, usually between a few thousand and a hundred thousand key/value pairs, so I have paid special attention to this range of values.
 
 ### Insert ≤ 1M keys
 
@@ -81,7 +83,7 @@ As you can see, Rust's HashMap crushes everyone here. I essentially compete with
 |  800000 |        135.5   |        166.471 |            140.312 |          156.955 |      136.243 |         192.371 |         211.337 |     151.195 |      221.291 |
 | 1000000 |        182.896 |        255.819 |            166.844 |          251.627 |      164.85  |         301.03  |         266.861 |     192.885 |      274.933 |
 
-Same story for updates, except khash and khashl get closer as we approach the million.
+Same story for updates, except khash and khashl get closer too as we approach the million.
 
 ### Retrieve ≤ 1M keys
 
