@@ -70,8 +70,7 @@ main(int argc, char **argv)
 
     /* insert phase: always needed */
     for (i = 1; i <= count; ++i) {
-        snprintf(key, sizeof(key), "%" PRIuPTR, i);
-        m_string_set_cstr(mkey, key);
+        m_string_set_uj(mkey, i);
         dict_str_set_at(h, mkey, i);
     }
 
@@ -83,8 +82,7 @@ main(int argc, char **argv)
 
     if (strcmp(mode, "update") == 0) {
         for (i = 1; i <= count; ++i) {
-            snprintf(key, sizeof(key), "%" PRIuPTR, i);
-            m_string_set_cstr(mkey, key);
+            m_string_set_uj(mkey, i);
             uintptr_t *val = dict_str_get(h, mkey);
             if (val == NULL) {
                 missing++;
@@ -100,8 +98,7 @@ main(int argc, char **argv)
 
     if (strcmp(mode, "retrieve") == 0) {
         for (i = 1; i <= count; ++i) {
-            snprintf(key, sizeof(key), "%" PRIuPTR, i);
-            m_string_set_cstr(mkey, key);
+            m_string_set_uj(mkey, i);
             uintptr_t *val = dict_str_get(h, mkey);
             if (val == NULL) {
                 missing++;
@@ -120,8 +117,7 @@ main(int argc, char **argv)
 
     if (strcmp(mode, "miss") == 0) {
         for (i = 1; i <= count; ++i) {
-            snprintf(key, sizeof(key), "%c%" PRIuPTR, KEY_PREFIX_MISS, i);
-            m_string_set_cstr(mkey, key);
+            m_string_set_uj(mkey, i);
             uintptr_t *val = dict_str_get(h, mkey);
             if (val != NULL) {
                 missing++;
